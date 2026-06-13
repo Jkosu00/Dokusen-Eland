@@ -14,29 +14,49 @@ class GameManager:
         jugadores,
         ancho=1280,
         alto=720,
-        board_size=600,
+        board_size=None,
         board_path="assets/images/board/tablero.png",
-        background_path="assets/images/board/fondo.png"
+        background_path="assets/images/board/fondo.png",
+        ventana_completa=True
     ):
         pygame.init()
-
-        self.ancho = ancho
-        self.alto = alto
-        self.board_size = board_size
-
-        self.board_x = (self.ancho - self.board_size) // 2
-        self.board_y = (self.alto - self.board_size) // 2
 
         self.board_path = board_path
         self.background_path = background_path
 
-        self.pantalla = pygame.display.set_mode((self.ancho, self.alto))
+        if ventana_completa:
+            info = pygame.display.Info()
+            self.ancho = info.current_w
+            self.alto = info.current_h
+
+            # Ventana sin bordes, ocupa toda la pantalla, pero NO es fullscreen real
+            self.pantalla = pygame.display.set_mode(
+                (self.ancho, self.alto),
+                pygame.NOFRAME
+            )
+        else:
+            self.ancho = ancho
+            self.alto = alto
+
+            self.pantalla = pygame.display.set_mode(
+                (self.ancho, self.alto),
+                pygame.RESIZABLE
+            )
+
         pygame.display.set_caption("Dokusen Eland - Ruta del Rey Pirata")
 
         self.reloj = pygame.time.Clock()
         self.running = True
 
         self.jugadores = jugadores
+
+        if board_size is None:
+            self.board_size = self._calcular_tamano_tablero()
+        else:
+            self.board_size = board_size
+
+        self.board_x = (self.ancho - self.board_size) // 2
+        self.board_y = (self.alto - self.board_size) // 2
 
         self.dice = Dice(size=(72, 72))
 
@@ -73,6 +93,26 @@ class GameManager:
         self._preparar_jugadores()
         self._definir_orden_inicial()
 
+    def _calcular_tamano_tablero(self):
+        """
+        Calcula el tamaño máximo del tablero según la pantalla.
+        Deja espacio para los paneles de jugadores y el mensaje inferior.
+        """
+
+        margen = 25
+        ancho_panel = 280
+        alto_msgbox = 60
+
+        espacio_horizontal = self.ancho - (ancho_panel * 2) - (margen * 4)
+        espacio_vertical = self.alto - alto_msgbox - (margen * 2)
+
+        board_size = min(espacio_horizontal, espacio_vertical)
+
+        if board_size < 580:
+            board_size = 580
+
+        return int(board_size)
+
     def _cargar_imagen_segura(self, path, size=None, usar_alpha=False):
         """
         Carga una imagen si existe.
@@ -88,7 +128,7 @@ class GameManager:
             imagen = pygame.image.load(path).convert()
 
         if size:
-            imagen = pygame.transform.scale(imagen, size)
+            imagen = pygame.transform.smoothscale(imagen, size)
 
         return imagen
 

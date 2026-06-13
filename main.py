@@ -26,7 +26,7 @@ def main():
         ),
     ]
 
-    game_manager = GameManager(jugadores)
+    game_manager = GameManager(jugadores, ventana_completa=True)
     game_manager.run()
 
 
