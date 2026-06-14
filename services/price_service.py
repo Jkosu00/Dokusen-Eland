@@ -39,21 +39,26 @@ def obtener_propiedad(nombre_propiedad):
 
 def calcular_precio_propiedad(nombre_propiedad, turno_actual, cantidad_puntos=4):
     propiedad = obtener_propiedad(nombre_propiedad)
+    puntos = propiedad["puntos"]
 
     resultado = estimar_valor(
-        puntos=propiedad["puntos"],
+        puntos=puntos,
         x_eval=turno_actual,
         cantidad_puntos=cantidad_puntos,
         valor_real=propiedad.get("valor_real_simulado")
     )
 
-    precio_estimado = int(resultado["valor_estimado"])
+    precio_estimado = int(round(resultado["valor_estimado"]))
 
-    if precio_estimado < 50:
-        precio_estimado = 50
+    precios_historicos = [punto[1] for punto in puntos]
+    precio_minimo = int(min(precios_historicos) * 0.85)
+    precio_maximo = int(max(precios_historicos) * 2.50)
 
-    if precio_estimado > 5000:
-        precio_estimado = 5000
+    if precio_estimado < precio_minimo:
+        precio_estimado = precio_minimo
+
+    if precio_estimado > precio_maximo:
+        precio_estimado = precio_maximo
 
     resultado["valor_estimado"] = precio_estimado
     resultado["nombre_propiedad"] = nombre_propiedad

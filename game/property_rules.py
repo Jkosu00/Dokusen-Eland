@@ -139,6 +139,19 @@ class PropertyRules:
         except Exception as error:
             print(f"No se pudo calcular precio con Lagrange para {propiedad.nombre}: {error}")
             return None
+    def actualizar_todas_con_lagrange(self, turno_actual):
+        total = 0
+
+        for propiedad in self.propiedades.values():
+            resultado = self.actualizar_precio_con_lagrange(
+                propiedad,
+                turno_actual
+            )
+
+            if resultado is not None:
+                total += 1
+
+        return total
     def analizar_isla(self, jugador, casilla, turno_actual=1):
         propiedad = self.obtener_propiedad(casilla.referencia)
 
