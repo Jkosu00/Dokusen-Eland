@@ -253,8 +253,6 @@ class GameManager:
             self._actualizar(dt)
             self._dibujar()
 
-        pygame.quit()
-
     def _manejar_eventos(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
