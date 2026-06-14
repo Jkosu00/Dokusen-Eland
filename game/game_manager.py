@@ -14,29 +14,49 @@ class GameManager:
         jugadores,
         ancho=1280,
         alto=720,
-        board_size=600,
+        board_size=None,
         board_path="assets/images/board/tablero.png",
-        background_path="assets/images/board/fondo.png"
+        background_path="assets/images/board/fondo.png",
+        ventana_completa=True
     ):
         pygame.init()
-
-        self.ancho = ancho
-        self.alto = alto
-        self.board_size = board_size
-
-        self.board_x = (self.ancho - self.board_size) // 2
-        self.board_y = (self.alto - self.board_size) // 2
 
         self.board_path = board_path
         self.background_path = background_path
 
-        self.pantalla = pygame.display.set_mode((self.ancho, self.alto))
+        if ventana_completa:
+            info = pygame.display.Info()
+            self.ancho = info.current_w
+            self.alto = info.current_h
+
+            # Ventana sin bordes, ocupa toda la pantalla, pero NO es fullscreen real
+            self.pantalla = pygame.display.set_mode(
+                (self.ancho, self.alto),
+                pygame.NOFRAME
+            )
+        else:
+            self.ancho = ancho
+            self.alto = alto
+
+            self.pantalla = pygame.display.set_mode(
+                (self.ancho, self.alto),
+                pygame.RESIZABLE
+            )
+
         pygame.display.set_caption("Dokusen Eland - Ruta del Rey Pirata")
 
         self.reloj = pygame.time.Clock()
         self.running = True
 
         self.jugadores = jugadores
+
+        if board_size is None:
+            self.board_size = self._calcular_tamano_tablero()
+        else:
+            self.board_size = board_size
+
+        self.board_x = (self.ancho - self.board_size) // 2
+        self.board_y = (self.alto - self.board_size) // 2
 
         self.dice = Dice(size=(72, 72))
 
@@ -100,9 +120,11 @@ class GameManager:
             imagen = pygame.image.load(path).convert()
 
         if size:
-            imagen = pygame.transform.scale(imagen, size)
+            imagen = pygame.transform.smoothscale(imagen, size)
 
         return imagen
+    
+    
 
     def _abrir_modal(self, titulo, lineas, opciones):
         self.modal_titulo = titulo
@@ -158,7 +180,7 @@ class GameManager:
             x, y = self.board_manager.obtener_coordenadas_ficha(
                 posicion=0,
                 indice_jugador=i,
-                ficha_size=48
+                ficha_size=64
             )
 
             jugador.establecer_coordenadas(x, y)
@@ -172,7 +194,7 @@ class GameManager:
 
             ficha = self._cargar_imagen_segura(
                 getattr(jugador, "ruta_ficha", ""),
-                size=(48, 48),
+                size=(64, 64),
                 usar_alpha=True
             )
 
@@ -482,7 +504,7 @@ class GameManager:
             jugador=jugador_actual,
             pasos=self.suma_dados,
             indice_jugador=self.turn_manager.indice_turno_actual,
-            ficha_size=48
+            ficha_size=64
         )
 
         self.estado = "moviendo_ficha"
