@@ -26,6 +26,7 @@ class Jugador:
 
         # Estado del jugador
         self.en_carcel = False
+        self.es_yonkou = False
 
         # Propiedades
         self.propiedades = []
