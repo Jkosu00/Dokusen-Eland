@@ -27,7 +27,7 @@ class Casilla:
         self.tipo = tipo
 
         # Posición lógica dentro del tablero
-        # Ejemplo: 0 = salida, 1 = primera casilla, 39 = última casilla
+        # Ejemplo: 0 = salida, 1 = primera casilla, 35 = última casilla
         self.posicion = posicion
 
         # Coordenadas visuales donde irá la ficha

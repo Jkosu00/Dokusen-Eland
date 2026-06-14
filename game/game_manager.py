@@ -95,21 +95,18 @@ class GameManager:
 
     def _calcular_tamano_tablero(self):
         """
-        Calcula el tamaño máximo del tablero según la pantalla.
-        Deja espacio para los paneles de jugadores y el mensaje inferior.
+        Calcula el tamaño del tablero para que se vea grande,
+        centrado y sin salirse de la pantalla.
         """
 
-        margen = 25
-        ancho_panel = 280
-        alto_msgbox = 60
+        margen_superior = 10
+        margen_inferior = 10
+        margen_lateral = 10
 
-        espacio_horizontal = self.ancho - (ancho_panel * 2) - (margen * 4)
-        espacio_vertical = self.alto - alto_msgbox - (margen * 2)
+        espacio_horizontal = self.ancho - (margen_lateral * 2)
+        espacio_vertical = self.alto - margen_superior - margen_inferior
 
         board_size = min(espacio_horizontal, espacio_vertical)
-
-        if board_size < 580:
-            board_size = 580
 
         return int(board_size)
 
@@ -131,6 +128,8 @@ class GameManager:
             imagen = pygame.transform.smoothscale(imagen, size)
 
         return imagen
+    
+    
 
     def _cargar_fondo(self):
         """
@@ -181,7 +180,7 @@ class GameManager:
             x, y = self.board_manager.obtener_coordenadas_ficha(
                 posicion=0,
                 indice_jugador=i,
-                ficha_size=48
+                ficha_size=64
             )
 
             jugador.establecer_coordenadas(x, y)
@@ -195,7 +194,7 @@ class GameManager:
 
             ficha = self._cargar_imagen_segura(
                 getattr(jugador, "ruta_ficha", ""),
-                size=(48, 48),
+                size=(64, 64),
                 usar_alpha=True
             )
 
@@ -322,7 +321,7 @@ class GameManager:
             jugador=jugador_actual,
             pasos=self.suma_dados,
             indice_jugador=self.turn_manager.indice_turno_actual,
-            ficha_size=48
+            ficha_size=64
         )
 
         self.estado = "moviendo_ficha"
