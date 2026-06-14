@@ -8,11 +8,18 @@ from models.casilla import (
     TIPO_IMPUESTO,
     TIPO_DESCANSO
 )
+from game.property_rules import PropertyRules
+from game.poneglyph_rules import PoneglyphRules
+from game.yonkou_rules import YonkouRules
+from game.event_rules import EventRules
 
 
 class CellResolver:
     def __init__(self):
-        pass
+        self.property_rules = PropertyRules()
+        self.poneglyph_rules = PoneglyphRules()
+        self.yonkou_rules = YonkouRules(self.property_rules)
+        self.event_rules = EventRules()
 
     def resolver_casilla(self, jugador, casilla):
         """
@@ -54,76 +61,74 @@ class CellResolver:
             return self.resolver_desconocida(jugador, casilla)
 
     def resolver_salida(self, jugador, casilla):
-        """
-        Aquí después se conectará la lógica de cobrar Berries al pasar o caer en salida.
-        """
+        mensaje = f"{jugador.nombre} cayó en Salida."
 
-        print(f"{jugador.nombre} cayó en SALIDA.")
-        print("Acción futura: entregar Berries al jugador.")
+        print(mensaje)
+
         return {
             "tipo": TIPO_SALIDA,
-            "mensaje": f"{jugador.nombre} cayó en salida."
-        }
-
-    def resolver_isla(self, jugador, casilla):
-        """
-        Aquí después se conectará la lógica de propiedades:
-        comprar, pagar impuesto, mejorar o recomprar.
-        """
-
-        print(f"{jugador.nombre} cayó en una ISLA.")
-        print(f"Referencia de isla: {casilla.referencia}")
-        print("Acción futura: llamar a property_rules.py.")
-        return {
-            "tipo": TIPO_ISLA,
-            "mensaje": f"{jugador.nombre} cayó en {casilla.nombre}.",
+            "accion": "sin_accion",
+            "mensaje": mensaje,
             "referencia": casilla.referencia
         }
 
-    def resolver_evento(self, jugador, casilla):
-        """
-        Aquí después se conectará la lógica de eventos:
-        evento aleatorio, decisión en pantalla, recompensa o castigo.
-        """
+    def resolver_isla(self, jugador, casilla):
+        resultado = self.property_rules.analizar_isla(jugador, casilla)
 
-        print(f"{jugador.nombre} cayó en EVENTO.")
-        print(f"Referencia de evento: {casilla.referencia}")
-        print("Acción futura: llamar a event_rules.py o event_service.py.")
+        print(resultado["mensaje"])
+
+        return {
+            "tipo": TIPO_ISLA,
+            "accion": resultado["accion"],
+            "mensaje": resultado["mensaje"],
+            "referencia": casilla.referencia,
+            "propiedad": resultado.get("propiedad"),
+            "impuesto": resultado.get("impuesto"),
+            "recompra": resultado.get("recompra")
+        }
+
+    def resolver_evento(self, jugador, casilla):
+        mensaje = self.event_rules.ejecutar_evento(
+            jugador,
+            casilla.referencia
+        )
+
+        print(mensaje)
+
         return {
             "tipo": TIPO_EVENTO,
-            "mensaje": f"{jugador.nombre} cayó en evento.",
+            "accion": "sin_accion",
+            "mensaje": mensaje,
             "referencia": casilla.referencia
         }
 
     def resolver_road_poneglyph(self, jugador, casilla):
-        """
-        Aquí después se conectará la lógica de Road Poneglyph:
-        compra, precio especial y victoria por tener los 4.
-        """
+        resultado = self.poneglyph_rules.analizar_poneglyph(jugador, casilla)
 
-        print(f"{jugador.nombre} cayó en ROAD PONEGLYPH.")
-        print(f"Referencia: {casilla.referencia}")
-        print("Acción futura: llamar a poneglyph_rules.py.")
+        print(resultado["mensaje"])
+
         return {
             "tipo": TIPO_ROAD_PONEGLYPH,
-            "mensaje": f"{jugador.nombre} cayó en {casilla.nombre}.",
-            "referencia": casilla.referencia
+            "accion": resultado["accion"],
+            "mensaje": resultado["mensaje"],
+            "referencia": casilla.referencia,
+            "propiedad": resultado.get("propiedad"),
+            "precio": resultado.get("precio"),
+            "impuesto": resultado.get("impuesto")
         }
 
     def resolver_yonko(self, jugador, casilla):
-        """
-        Aquí después se conectará la lógica de Yonko:
-        elegir una isla propia y potenciar su impuesto.
-        """
+        resultado = self.yonkou_rules.analizar_yonkou(jugador)
 
-        print(f"{jugador.nombre} cayó en la casilla YONKO.")
-        print("Acción futura: llamar a yonko_rules.py.")
-        print("Debe permitir elegir una propiedad para mejorar su bounty.")
+        print(resultado["mensaje"])
+
         return {
             "tipo": TIPO_YONKO,
-            "mensaje": f"{jugador.nombre} cayó en la casilla Yonko.",
-            "referencia": casilla.referencia
-        }
+            "accion": resultado["accion"],
+            "mensaje": resultado["mensaje"],
+            "referencia": casilla.referencia,
+            "propiedades": resultado.get("propiedades")
+        }        
 
     def resolver_carcel(self, jugador, casilla):
         """
@@ -158,16 +163,16 @@ class CellResolver:
         }
 
     def resolver_descanso(self, jugador, casilla):
-        """
-        Aquí después se conectará la lógica de descanso.
-        Puede no hacer nada.
-        """
+        jugador.sumar_dinero(200)
 
-        print(f"{jugador.nombre} cayó en DESCANSO.")
-        print("Acción futura: no ocurre nada o se muestra mensaje.")
+        mensaje = f"{jugador.nombre} cayó en Descanso y recibió $200 Berries."
+
+        print(mensaje)
+
         return {
             "tipo": TIPO_DESCANSO,
-            "mensaje": f"{jugador.nombre} descansó en esta casilla.",
+            "accion": "sin_accion",
+            "mensaje": mensaje,
             "referencia": casilla.referencia
         }
 
