@@ -37,7 +37,7 @@ class Propiedad:
         return int(self.precio_actual * 0.25)
 
     def calcular_impuesto(self):
-        impuesto = int(self.precio_actual * 0.12)
+        impuesto = int(self.precio_actual * 200000000.20)
         impuesto += int(self.precio_actual * 0.08 * self.nivel_mejora)
 
         if self.tiene_yonkou:

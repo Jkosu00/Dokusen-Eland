@@ -1,40 +1,46 @@
 import pygame # type: ignore
 
 class Jugador:
-    def __init__(self, nombre, ruta_imagen, ruta_ficha, dinero_inicial=1500):
-        # Datos principales del jugador
+    def __init__(
+        self,
+        nombre,
+        ruta_imagen,
+        ruta_ficha,
+        ruta_carta=None,
+        dinero_inicial=1500
+    ):
         self.nombre = nombre
-        self.ruta_imagen = ruta_imagen      # Imagen que identifica al jugador, por ejemplo avatar o retrato
-        self.ruta_ficha = ruta_ficha        # Imagen de la ficha que se moverá en el tablero
+
+        # Rutas de assets
+        self.ruta_imagen = ruta_imagen      # avatar/personaje
+        self.ruta_ficha = ruta_ficha        # barco/ficha del tablero
+        self.ruta_carta = ruta_carta        # carta completa del jugador
+
         self.dinero = dinero_inicial
 
-        # Posición dentro del tablero
-        self.posicion = 0                   # Casilla actual, de 0 a 39
+        self.posicion = 0
         self.posicion_anterior = 0
 
-        # Coordenadas visuales en pantalla
         self.x = 0
         self.y = 0
         self.objetivo_x = 0
         self.objetivo_y = 0
 
-        # Turnos
         self.orden_turno = None
         self.ultima_tirada = 0
         self.turnos_perdidos = 0
+
         self.activo = True
-
-        # Estado del jugador
         self.en_carcel = False
-        self.es_yonkou = False
+        self.turnos_en_prision = 0
 
-        # Propiedades
         self.propiedades = []
         self.road_poneglyphs = []
 
-        # Imágenes cargadas en Pygame
-        self.imagen = None
-        self.ficha = None
+        # Imágenes ya cargadas por pygame
+        self.imagen = None   # avatar/personaje
+        self.ficha = None    # barco
+        self.carta = None    # panel completo
         self.rect = None
 
     def cargar_imagenes(self, tamaño_ficha=(48, 48), tamaño_imagen=(80, 80)):
@@ -86,9 +92,6 @@ class Jugador:
     def restar_dinero(self, cantidad):
         self.dinero -= cantidad
 
-        if self.dinero < 0:
-            self.dinero = 0
-
     def puede_pagar(self, cantidad):
         return self.dinero >= cantidad
 
@@ -110,6 +113,19 @@ class Jugador:
 
     def perder_turno(self, cantidad=1):
         self.turnos_perdidos += cantidad
+
+    def enviar_a_prision(self):
+        self.en_carcel = True
+        self.turnos_en_prision = 0
+
+
+    def liberar_de_prision(self):
+        self.en_carcel = False
+        self.turnos_en_prision = 0
+
+
+    def sumar_turno_prision(self):
+        self.turnos_en_prision += 1
 
     def puede_jugar_turno(self):
         return self.activo and self.turnos_perdidos == 0 and not self.en_carcel

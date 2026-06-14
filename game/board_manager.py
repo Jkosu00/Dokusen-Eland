@@ -187,58 +187,58 @@ class BoardManager:
         """
 
         datos_casillas = [
-            # 0 - Esquina inferior derecha
-            ("Salida", TIPO_SALIDA, "salida"),
+         # 0 - Esquina inferior derecha
+        ("Salida", TIPO_SALIDA, "salida"),
 
-            # 1 a 8 - Fila inferior, derecha a izquierda
-            ("Dawn Island", TIPO_ISLA, "dawn_island"),
-            ("Shells Town", TIPO_ISLA, "shells_town"),
-            ("Cofre Recompensa", TIPO_EVENTO, "cofre_recompensa"),
-            ("Orange Town", TIPO_ISLA, "orange_town"),
-            ("Road Poneglyph 1", TIPO_ROAD_PONEGLYPH, "road_poneglyph_1"),
-            ("Villa Syrup", TIPO_ISLA, "villa_syrup"),
-            ("Baratie", TIPO_ISLA, "baratie"),
-            ("Conomi Island", TIPO_ISLA, "conomi_island"),
+        # 1 a 8 - Fila inferior, derecha a izquierda
+        ("Dawn Island", TIPO_ISLA, "dawn_island"),
+        ("Shells Town", TIPO_ISLA, "shells_town"),
+        ("Cofre Recompensa", TIPO_EVENTO, "cofre_recompensa"),
+        ("Orange Town", TIPO_ISLA, "orange_town"),
+        ("Road Poneglyph 1", TIPO_ROAD_PONEGLYPH, "road_poneglyph_1"),
+        ("Villa Syrup", TIPO_ISLA, "villa_syrup"),
+        ("Baratie", TIPO_ISLA, "baratie"),
+        ("Conomi Island", TIPO_ISLA, "conomi_island"),
 
-            # 9 - Esquina inferior izquierda
-            ("Prisión", TIPO_CARCEL, "prision"),
+        # 9 - Esquina inferior izquierda
+        ("Prisión", TIPO_CARCEL, "prision"),
 
-            # 10 a 17 - Lado izquierdo, abajo hacia arriba
-            ("Little Garden", TIPO_ISLA, "little_garden"),
-            ("Drum Island", TIPO_ISLA, "drum_island"),
-            ("Evento Riesgo", TIPO_EVENTO, "evento_riesgo"),
-            ("Alabasta", TIPO_ISLA, "alabasta"),
-            ("Road Poneglyph 2", TIPO_ROAD_PONEGLYPH, "road_poneglyph_2"),
-            ("Mock Town", TIPO_ISLA, "mock_town"),
-            ("Skypiea", TIPO_ISLA, "skypiea"),
-            ("Water 7", TIPO_ISLA, "water_7"),
+        # 10 a 17 - Lado izquierdo, abajo hacia arriba
+        ("Little Garden", TIPO_ISLA, "little_garden"),
+        ("Drum Island", TIPO_ISLA, "drum_island"),
+        ("Alabasta", TIPO_ISLA, "alabasta"),
+        ("Road Poneglyph 2", TIPO_ROAD_PONEGLYPH, "road_poneglyph_2"),
+        ("Mock Town", TIPO_ISLA, "mock_town"),
+        ("Skypiea", TIPO_ISLA, "skypiea"),
+        ("Cofre Recompensa", TIPO_EVENTO, "cofre_recompensa"),
+        ("Water 7", TIPO_ISLA, "water_7"),
 
-            # 18 - Esquina superior izquierda
-            ("Descanso", TIPO_DESCANSO, "descanso"),
+        # 18 - Esquina superior izquierda
+        ("Descanso", TIPO_DESCANSO, "descanso"),
 
-            # 19 a 26 - Fila superior, izquierda a derecha
-            ("Thriller Bark", TIPO_ISLA, "thriller_bark"),
-            ("Amazon Lily", TIPO_ISLA, "amazon_lily"),
-            ("Cofre Recompensa", TIPO_EVENTO, "cofre_recompensa"),
-            ("Marineford", TIPO_ISLA, "marineford"),
-            ("Road Poneglyph 3", TIPO_ROAD_PONEGLYPH, "road_poneglyph_3"),
-            ("Gyojin Island", TIPO_ISLA, "gyojin_island"),
-            ("Punk Hazard", TIPO_ISLA, "punk_hazard"),
-            ("Dressrosa", TIPO_ISLA, "dressrosa"),
+        # 19 a 26 - Fila superior, izquierda a derecha
+        ("Thriller Bark", TIPO_ISLA, "thriller_bark"),
+        ("Amazon Lily", TIPO_ISLA, "amazon_lily"),
+        ("Cofre Recompensa", TIPO_EVENTO, "cofre_recompensa"),
+        ("Marineford", TIPO_ISLA, "marineford"),
+        ("Road Poneglyph 3", TIPO_ROAD_PONEGLYPH, "road_poneglyph_3"),
+        ("Gyojin Island", TIPO_ISLA, "gyojin_island"),
+        ("Punk Hazard", TIPO_ISLA, "punk_hazard"),
+        ("Dressrosa", TIPO_ISLA, "dressrosa"),
 
-            # 27 - Esquina superior derecha
-            ("Yonko", TIPO_YONKO, "yonko"),
+        # 27 - Esquina superior derecha
+        ("Yonko", TIPO_YONKO, "yonko"),
 
-            # 28 a 35 - Lado derecho, arriba hacia abajo
-            ("Zou Island", TIPO_ISLA, "zou_island"),
-            ("Whole Cake", TIPO_ISLA, "whole_cake"),
-            ("Cofre Recompensa", TIPO_EVENTO, "cofre_recompensa"),
-            ("Wano", TIPO_ISLA, "wano"),
-            ("Road Poneglyph 4", TIPO_ROAD_PONEGLYPH, "road_poneglyph_4"),
-            ("Egghead", TIPO_ISLA, "egghead"),
-            ("Elbaf", TIPO_ISLA, "elbaf"),
-            ("Laugh Tale", TIPO_ISLA, "laugh_tale"),
-        ]
+        # 28 a 35 - Lado derecho, arriba hacia abajo
+        ("Zou Island", TIPO_ISLA, "zou_island"),
+        ("Whole Cake", TIPO_ISLA, "whole_cake"),
+        ("Wano", TIPO_ISLA, "wano"),
+        ("Road Poneglyph 4", TIPO_ROAD_PONEGLYPH, "road_poneglyph_4"),
+        ("Egghead", TIPO_ISLA, "egghead"),
+        ("Elbaf", TIPO_ISLA, "elbaf"),
+        ("Evento Riesgo", TIPO_EVENTO, "evento_riesgo"),
+        ("Laugh Tale", TIPO_ISLA, "laugh_tale"),
+         ]
 
         casillas = []
 
