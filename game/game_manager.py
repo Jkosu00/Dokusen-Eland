@@ -11,7 +11,8 @@ from ui.components.purchase_modal import PurchaseModal
 from ui.components.event_modal import EventModal
 from models.casilla import TIPO_EVENTO, TIPO_DESCANSO, TIPO_CARCEL
 from ui.components.cell_info_panel import CellInfoPanel
-
+from services.price_service import calcular_bono_lagrange
+from services.sound_service import SoundService
 
 class GameManager:
     def __init__(
@@ -25,7 +26,8 @@ class GameManager:
         ventana_completa=True
     ):
         pygame.init()
-
+        self.sounds = SoundService()
+        self.sounds.play_music("tablero")
         self.board_path = board_path
         self.background_path = background_path
 
@@ -109,18 +111,20 @@ class GameManager:
 
         self.bienes_venta_bancarrota = []
         self.jugador_en_bancarrota = None
-
+        self.boton_victoria_rect = None
         self.mensaje_temporal_tiempo = 0
         self.mensaje_salida_pendiente = ""
         self.mensaje = "Presiona ESPACIO para lanzar los dados"
         self.detalle_casilla = ""
-
+        self.alerta_lagrange = ""
+        self.alerta_lagrange_tiempo = 0
+        self.alerta_lagrange_duracion = 3500
         self.ganador = None
         self.motivo_victoria = ""
 
         self.imagen_victoria = self._cargar_imagen_segura(
             "assets/images/UI_Eventos/win.png",
-            size=(520, 300),
+            size=(500, 260),
             usar_alpha=True
         )
 
@@ -157,7 +161,30 @@ class GameManager:
             imagen = pygame.transform.smoothscale(imagen, size)
 
         return imagen
+    def _avanzar_turno(self, mostrar_alerta_lagrange=True):
+        turno_anterior = self.turn_manager.turno_numero
 
+        jugador_siguiente = self.turn_manager.siguiente_turno()
+
+        turno_nuevo = self.turn_manager.turno_numero
+
+        if turno_nuevo > turno_anterior:
+            total_islas = self.cell_resolver.property_rules.actualizar_todas_con_lagrange(
+                turno_nuevo
+            )
+
+            total_poneglyphs = self.cell_resolver.poneglyph_rules.actualizar_todos_con_lagrange(
+                turno_nuevo
+            )
+
+            if mostrar_alerta_lagrange:
+                self.alerta_lagrange = (
+                    f"Turno {turno_anterior} terminado. "
+                    f"Precios actualizados por Lagrange para el turno {turno_nuevo}."
+                )
+                self.alerta_lagrange_tiempo = pygame.time.get_ticks()
+
+        return jugador_siguiente
     def _calcular_tamano_tablero(self):
         margen_superior = 10
         margen_inferior = 10
@@ -259,10 +286,14 @@ class GameManager:
                 self.running = False
 
             if event.type == pygame.MOUSEBUTTONDOWN:
+                if self.estado == "fin_partida":
+                    self._manejar_click_victoria(event.pos)
+                    continue
+
                 if event.button == 3:
                     self._manejar_click_info_casilla(event.pos)
                     continue
-
+                
                 if self.estado in [
                     "modal_compra_isla",
                     "modal_compra_poneglyph",
@@ -302,10 +333,6 @@ class GameManager:
 
                 if event.key == pygame.K_F4:
                     self._forzar_victoria_poneglyph()
-                    continue
-
-                if self.estado == "fin_partida":
-                    self._volver_al_menu_desde_victoria()
                     continue
 
                 if event.key == pygame.K_SPACE:
@@ -432,6 +459,28 @@ class GameManager:
             return titulo, subtitulo, lineas
 
         return titulo, subtitulo, lineas
+    def _manejar_click_victoria(self, pos_mouse):
+        if self.boton_victoria_rect and self.boton_victoria_rect.collidepoint(pos_mouse):
+            if hasattr(self, "sounds"):
+                self.sounds.play_effect("click")
+
+            self._volver_al_menu_desde_victoria()
+    def _actualizar_mercado_lagrange(self):
+        turno_actual = self.turn_manager.turno_numero
+
+        total_islas = self.cell_resolver.property_rules.actualizar_todas_con_lagrange(
+            turno_actual
+        )
+
+        total_poneglyphs = self.cell_resolver.poneglyph_rules.actualizar_todos_con_lagrange(
+            turno_actual
+        )
+
+        self.alerta_lagrange = (
+            f"Turno {turno_actual}: precios actualizados por Lagrange "
+            f"({total_islas} islas y {total_poneglyphs} Poneglyphs)."
+        )
+        self.alerta_lagrange_tiempo = pygame.time.get_ticks()
 
     def _forzar_victoria_poneglyph(self):
         jugador_actual = self.turn_manager.obtener_jugador_actual()
@@ -439,22 +488,19 @@ class GameManager:
         self.ganador = jugador_actual
         self.motivo_victoria = "reunió los 4 Road Poneglyphs"
         self.estado = "fin_partida"
+        self.sounds.stop_music()
+        self.sounds.play_effect("victoria")
         self.mensaje = f"{jugador_actual.nombre} ganó: {self.motivo_victoria}."
         self.detalle_casilla = ""
         print(self.mensaje)
 
     def _volver_al_menu_desde_victoria(self):
         """
-        Queda preparado para volver al menú principal.
-        Cuando exista el menú, aquí se conecta el cambio de pantalla.
+        Cuando exista el menú principal, aquí se debe cambiar de pantalla.
+        Por ahora solo cierra la ventana del juego.
         """
 
         self.volver_menu_pendiente = True
-
-        if self.on_volver_menu is not None:
-            self.on_volver_menu()
-            return
-
         self.running = False
 
     # ============================================================
@@ -497,7 +543,7 @@ class GameManager:
         self.mensaje_temporal_tiempo = 0
         self.detalle_casilla = ""
         self.mensaje_salida_pendiente = ""
-
+        self.sounds.play_effect("dados")
         self.dice.iniciar_lanzamiento()
         self.estado = "animando_dados"
         self.mensaje = f"{jugador.nombre} está lanzando los dados..."
@@ -527,7 +573,7 @@ class GameManager:
 
         if accion is None:
             return
-
+        self.sounds.play_effect("click")
         jugador_actual = self.turn_manager.obtener_jugador_actual()
 
         if self.estado == "modal_prision":
@@ -571,6 +617,7 @@ class GameManager:
         if accion == "tirar_prision":
             self.event_modal.cerrar()
             self.dice.iniciar_lanzamiento()
+            self.sounds.play_effect("dados")
             self.estado = "animando_dados_prision"
             self.mensaje = f"{jugador.nombre} intenta sacar par para salir de prisión..."
             return
@@ -639,10 +686,19 @@ class GameManager:
 
     def _iniciar_movimiento_con_dados(self, jugador):
         if self.board_manager.paso_por_salida(jugador.posicion, self.suma_dados):
-            jugador.sumar_dinero(350)
-            self.mensaje_salida_pendiente = (
-                f"{jugador.nombre} pasó por Salida y recibió $350 Berries."
+            resultado_bono = calcular_bono_lagrange(
+                "salida",
+                self.turn_manager.turno_numero
             )
+
+            bono = int(resultado_bono["valor_estimado"])
+            jugador.sumar_dinero(bono)
+            self.sounds.play_effect("dinero")
+            self.mensaje_salida_pendiente = (
+                f"{jugador.nombre} pasó por Salida y recibió ${bono} Berries por Lagrange."
+            )
+
+            self._mostrar_alerta_superior(self.mensaje_salida_pendiente)
         else:
             self.mensaje_salida_pendiente = ""
 
@@ -698,7 +754,7 @@ class GameManager:
         jugador_actual = self.turn_manager.obtener_jugador_actual()
 
         if not casilla_final:
-            self.turn_manager.siguiente_turno()
+            self._avanzar_turno()
             self.estado = "esperando_lanzamiento"
             return
 
@@ -717,7 +773,13 @@ class GameManager:
             self.movement_manager.limpiar_ultima_casilla()
             return
 
-        resultado = self.cell_resolver.resolver_casilla(jugador_actual, casilla_final)
+        turno_actual = self.turn_manager.turno_numero
+
+        resultado = self.cell_resolver.resolver_casilla(
+            jugador_actual,
+            casilla_final,
+            turno_actual
+        )
         accion = resultado.get("accion")
         self.detalle_casilla = resultado.get("mensaje", "")
 
@@ -857,17 +919,24 @@ class GameManager:
     # ============================================================
 
     def _manejar_casilla_descanso(self, jugador):
-        bono = 200
+        resultado_bono = calcular_bono_lagrange(
+            "descanso",
+            self.turn_manager.turno_numero
+        )
+
+        bono = int(resultado_bono["valor_estimado"])
         jugador.sumar_dinero(bono)
+        self.sounds.play_effect("dinero")
         self._abrir_evento_simple(
             titulo="Descanso",
-            mensaje=f"{jugador.nombre} descansó en una zona segura y recibió ${bono} Berries.",
+            mensaje=f"{jugador.nombre} descansó en una zona segura y recibió ${bono} Berries por Lagrange.",
             tipo="descanso",
             cerrar_turno=True
         )
 
     def _manejar_casilla_prision(self, jugador):
         self._enviar_a_prision(jugador)
+        self.sounds.play_effect("prision")
         self._abrir_evento_simple(
             titulo="Prisión",
             mensaje=(
@@ -886,12 +955,21 @@ class GameManager:
         self._resolver_evento_recompensa(jugador)
 
     def _resolver_evento_recompensa(self, jugador):
-        cantidad = random.choice([150, 200, 250, 300])
+        resultado_bono = calcular_bono_lagrange(
+            "cofre",
+            self.turn_manager.turno_numero
+        )
+
+        cantidad = int(resultado_bono["valor_estimado"])
         jugador.sumar_dinero(cantidad)
+        self.sounds.play_effect("cofre")
 
         self._abrir_evento_simple(
             titulo="Cofre Recompensa",
-            mensaje=f"Encontraste un tesoro en la ruta. Recibes ${cantidad} Berries.",
+            mensaje=(
+                f"Encontraste un tesoro en la ruta. "
+                f"Recibes ${cantidad} Berries calculados por Lagrange."
+            ),
             tipo="premio",
             cerrar_turno=True
         )
@@ -905,6 +983,7 @@ class GameManager:
             self._resolver_riesgo_malo(jugador)
 
     def _resolver_riesgo_malo(self, jugador):
+        self.sounds.play_effect("evento_malo")
         evento = random.choices(
             ["perder_dinero", "perder_propiedad"],
             weights=[70, 30],
@@ -914,6 +993,7 @@ class GameManager:
         if evento == "perder_dinero":
             cantidad = random.choice([100, 150, 200, 250])
             jugador.restar_dinero(cantidad)
+            self.sounds.play_effect("perder_dinero")
             self._abrir_evento_simple(
                 titulo="Evento de Riesgo",
                 mensaje=f"Una tormenta dañó tu barco. Pierdes ${cantidad} Berries.",
@@ -945,6 +1025,7 @@ class GameManager:
 
         bien = random.choice(bienes)
         self._liberar_propiedad(bien)
+        self.sounds.play_effect("destruir")
 
         self._abrir_evento_simple(
             titulo="Evento de Riesgo",
@@ -961,11 +1042,21 @@ class GameManager:
         )[0]
 
         if evento == "ganar_dinero":
-            cantidad = random.choice([150, 200, 250, 300])
+            resultado_bono = calcular_bono_lagrange(
+                "riesgo_bueno",
+                self.turn_manager.turno_numero
+            )
+
+            cantidad = int(resultado_bono["valor_estimado"])
             jugador.sumar_dinero(cantidad)
+            self.sounds.play_effect("dinero")
+
             self._abrir_evento_simple(
                 titulo="Evento Favorable",
-                mensaje=f"Encontraste recursos valiosos en la ruta. Ganas ${cantidad} Berries.",
+                mensaje=(
+                    f"Encontraste recursos valiosos en la ruta. "
+                    f"Ganas ${cantidad} Berries calculados por Lagrange."
+                ),
                 tipo="riesgo_bueno",
                 cerrar_turno=True
             )
@@ -981,7 +1072,7 @@ class GameManager:
                     cerrar_turno=True
                 )
                 return
-
+            self.sounds.play_effect("yonkou")
             self._abrir_info_yonkou(jugador, propiedades, desde_evento=True)
             return
 
@@ -996,6 +1087,7 @@ class GameManager:
             return
 
         self.propiedades_destruibles = propiedades
+        self.sounds.play_effect("evento_bueno")
         self.event_modal.abrir(
             titulo="Evento Favorable",
             mensaje=(
@@ -1034,7 +1126,7 @@ class GameManager:
 
         if accion_modal is None:
             return
-
+        self.sounds.play_effect("click")
         jugador_actual = self.turn_manager.obtener_jugador_actual()
         propiedad = self.propiedad_pendiente
 
@@ -1084,7 +1176,7 @@ class GameManager:
             self.mensaje = mensaje
             self.mensaje_temporal_tiempo = pygame.time.get_ticks()
             return
-
+        self.sounds.play_effect("compra")
         cantidad_monopolios = self._contar_monopolios(jugador)
         if cantidad_monopolios >= 3:
             self.purchase_modal.cerrar()
@@ -1113,6 +1205,7 @@ class GameManager:
             jugador,
             propiedad
         )
+        self.sounds.play_effect("mejora")
         self._finalizar_decision()
 
     def _resolver_click_compra_poneglyph(self, jugador, propiedad, accion_modal):
@@ -1126,7 +1219,7 @@ class GameManager:
         if propiedad.dueno != jugador:
             self.purchase_modal.mostrar_feedback(mensaje)
             return
-
+        self.sounds.play_effect("compra")
         if jugador.tiene_4_road_poneglyphs():
             self.purchase_modal.cerrar()
             self._declarar_victoria(jugador, "reunió los 4 Road Poneglyphs")
@@ -1140,6 +1233,7 @@ class GameManager:
 
         if accion_modal == "pagar_impuesto":
             self.detalle_casilla = self.cell_resolver.property_rules.pagar_impuesto(jugador, propiedad)
+            self.sounds.play_effect("perder_dinero")
             self._finalizar_decision()
             return
 
@@ -1155,6 +1249,7 @@ class GameManager:
             pago = self.cell_resolver.property_rules.pagar_impuesto(jugador, propiedad)
             recompra_msg = self.cell_resolver.property_rules.recomprar_propiedad(jugador, propiedad)
             self.detalle_casilla = f"{pago} {recompra_msg}"
+            self.sounds.play_effect("recompra")
             self._finalizar_decision()
 
     def _calcular_precio_compra_con_nivel(self, propiedad, nivel_objetivo):
@@ -1271,6 +1366,7 @@ class GameManager:
                     nombre = propiedad.nombre
                     dueno = propiedad.dueno.nombre if propiedad.dueno else "otro jugador"
                     self._liberar_propiedad(propiedad)
+                    self.sounds.play_effect("destruir")
                     self.propiedades_destruibles = []
 
                     self._abrir_evento_simple(
@@ -1333,6 +1429,8 @@ class GameManager:
         self.ganador = jugador
         self.motivo_victoria = motivo
         self.estado = "fin_partida"
+        self.sounds.stop_music()
+        self.sounds.play_effect("victoria")
 
         self.mensaje = f"{jugador.nombre} ganó: {motivo}."
         self.detalle_casilla = self.mensaje
@@ -1466,6 +1564,7 @@ class GameManager:
 
                 jugador.sumar_dinero(valor)
                 self._liberar_propiedad(bien)
+                self.sounds.play_effect("destruir")
 
                 self.bienes_venta_bancarrota = self._obtener_bienes_del_jugador(jugador)
 
@@ -1576,8 +1675,7 @@ class GameManager:
         self.propiedades_yonkou_disponibles = []
         self.propiedades_destruibles = []
         self.evento_cierra_turno = True
-
-        self.turn_manager.siguiente_turno()
+        self._avanzar_turno()
         self._saltar_jugadores_eliminados()
         self.estado = "esperando_lanzamiento"
 
@@ -1586,7 +1684,7 @@ class GameManager:
             self.mensaje_temporal_tiempo = pygame.time.get_ticks()
         else:
             self.mensaje = "Presiona ESPACIO para lanzar los dados"
-
+    
     def _cerrar_turno_con_log(self, mensaje):
         """
         Cierra el turno mostrando solo el mensaje en el log central.
@@ -1603,7 +1701,7 @@ class GameManager:
         self.accion_pendiente = None
         self.propiedad_pendiente = None
 
-        self.turn_manager.siguiente_turno()
+        self._avanzar_turno()
         self.estado = "esperando_lanzamiento"
     # ============================================================
     # DIBUJO GENERAL
@@ -1622,7 +1720,9 @@ class GameManager:
         self._dibujar_jugadores()
         self._dibujar_paneles_jugadores()
         self._dibujar_dados_centro()
+        self._dibujar_contador_turnos()
         self._dibujar_msgbox()
+        self._dibujar_alerta_lagrange()
         self.cell_info_panel.dibujar(self.pantalla)
         self._dibujar_modal_compra()
         self._dibujar_event_modal()
@@ -1636,7 +1736,51 @@ class GameManager:
             if casilla.referencia == referencia:
                 return casilla
         return None
-    
+    def _dibujar_alerta_lagrange(self):
+        if not self.alerta_lagrange:
+            return
+
+        tiempo_actual = pygame.time.get_ticks()
+
+        if tiempo_actual - self.alerta_lagrange_tiempo > self.alerta_lagrange_duracion:
+            self.alerta_lagrange = ""
+            return
+
+        ancho_box = 760
+        alto_box = 46
+
+        x = (self.ancho - ancho_box) // 2
+        y = self.board_y + 145
+
+        rect = pygame.Rect(x, y, ancho_box, alto_box)
+
+        pygame.draw.rect(
+            self.pantalla,
+            (18, 24, 36),
+            rect,
+            border_radius=12
+        )
+
+        pygame.draw.rect(
+            self.pantalla,
+            (255, 205, 80),
+            rect,
+            width=2,
+            border_radius=12
+        )
+
+        self._dibujar_texto_centrado(
+            self.alerta_lagrange,
+            x + ancho_box // 2,
+            y + 14,
+            size=16,
+            color=(255, 235, 170)
+        )
+
+    def _mostrar_alerta_superior(self, mensaje):
+        self.alerta_lagrange = mensaje
+        self.alerta_lagrange_tiempo = pygame.time.get_ticks()
+
     def _dibujar_pantalla_victoria(self):
         if self.estado != "fin_partida":
             return
@@ -1645,8 +1789,8 @@ class GameManager:
         overlay.fill((0, 0, 0, 180))
         self.pantalla.blit(overlay, (0, 0))
 
-        panel_ancho = 650
-        panel_alto = 500
+        panel_ancho = 680
+        panel_alto = 560
         panel_x = (self.ancho - panel_ancho) // 2
         panel_y = (self.alto - panel_alto) // 2
 
@@ -1675,34 +1819,77 @@ class GameManager:
         self._dibujar_texto_centrado(
             "VICTORIA",
             panel_x + panel_ancho // 2,
-            panel_y + 350,
-            size=42,
+            panel_y + 310,
+            size=40,
             color=(255, 220, 80)
         )
 
         self._dibujar_texto_centrado(
             f"{ganador_nombre} ganó",
             panel_x + panel_ancho // 2,
-            panel_y + 405,
-            size=26,
+            panel_y + 365,
+            size=25,
             color=(255, 255, 255)
         )
 
         self._dibujar_texto_centrado(
             self.motivo_victoria,
             panel_x + panel_ancho // 2,
-            panel_y + 440,
-            size=20,
+            panel_y + 405,
+            size=19,
             color=(220, 220, 220)
         )
 
-        self._dibujar_texto_centrado(
-            "Presiona ENTER o ESPACIO para volver al menú",
-            panel_x + panel_ancho // 2,
-            panel_y + 475,
-            size=16,
-            color=(180, 180, 180)
+        boton_ancho = 240
+        boton_alto = 42
+        boton_x = panel_x + (panel_ancho - boton_ancho) // 2
+        boton_y = panel_y + 465
+
+        self.boton_victoria_rect = pygame.Rect(
+            boton_x,
+            boton_y,
+            boton_ancho,
+            boton_alto
         )
+
+        mouse_pos = pygame.mouse.get_pos()
+        hover = self.boton_victoria_rect.collidepoint(mouse_pos)
+
+        color_boton = (118, 78, 26) if not hover else (160, 105, 35)
+        color_borde = (255, 218, 100)
+
+        pygame.draw.rect(
+            self.pantalla,
+            color_borde,
+            pygame.Rect(boton_x - 3, boton_y - 3, boton_ancho + 6, boton_alto + 6),
+            border_radius=12
+        )
+
+        pygame.draw.rect(
+            self.pantalla,
+            color_boton,
+            self.boton_victoria_rect,
+            border_radius=10
+        )
+
+        pygame.draw.rect(
+            self.pantalla,
+            (45, 25, 10),
+            self.boton_victoria_rect,
+            width=2,
+            border_radius=10
+        )
+
+        font_boton = pygame.font.SysFont("arial", 20, bold=True)
+        texto_boton = font_boton.render("Continuar", True, (255, 245, 210))
+        texto_rect = texto_boton.get_rect(
+            center=(
+                boton_x + boton_ancho // 2,
+                boton_y + boton_alto // 2
+            )
+        )
+
+        self.pantalla.blit(texto_boton, texto_rect)
     
     def _dibujar_casillas_venta_bancarrota(self):
         if self.estado != "seleccionando_venta_bancarrota":
@@ -1830,7 +2017,48 @@ class GameManager:
                     width=5,
                     border_radius=8
                 )
+    def _dibujar_contador_turnos(self):
+        turno = self.turn_manager.turno_numero
+        jugador_actual = self.turn_manager.obtener_jugador_actual()
 
+        if jugador_actual:
+            texto = f"Turno {turno} | {jugador_actual.nombre}"
+        else:
+            texto = f"Turno {turno}"
+
+        ancho_box = 250
+        alto_box = 38
+
+        x = self.board_x + self.board_size + 18
+        y = 150
+
+        if x + ancho_box > self.ancho:
+            x = self.ancho - ancho_box - 18
+
+        rect = pygame.Rect(x, y, ancho_box, alto_box)
+
+        pygame.draw.rect(
+            self.pantalla,
+            (18, 24, 36),
+            rect,
+            border_radius=10
+        )
+
+        pygame.draw.rect(
+            self.pantalla,
+            (255, 205, 80),
+            rect,
+            width=2,
+            border_radius=10
+        )
+
+        self._dibujar_texto_centrado(
+            texto,
+            x + ancho_box // 2,
+            y + alto_box // 2,
+            size=15,
+            color=(255, 235, 170)
+        )
     def _dibujar_jugadores(self):
         colores = [
             (255, 80, 80),
@@ -1876,6 +2104,25 @@ class GameManager:
     def _dibujar_tarjeta_jugador(self, jugador, x, y):
         ancho_carta = 330
         alto_carta = 105
+        jugador_actual = self.turn_manager.obtener_jugador_actual()
+        if jugador == jugador_actual and getattr(jugador, "activo", True) and self.estado != "fin_partida":
+            tiempo = pygame.time.get_ticks()
+            grosor = 4 + int((tiempo // 300) % 2)
+
+            rect_brillo = pygame.Rect(
+                x - 6,
+                y - 6,
+                ancho_carta + 12,
+                alto_carta + 12
+            )
+
+            pygame.draw.rect(
+                self.pantalla,
+                (255, 210, 60),
+                rect_brillo,
+                width=grosor,
+                border_radius=18
+            )
 
         if jugador.carta:
             self.pantalla.blit(jugador.carta, (x, y))

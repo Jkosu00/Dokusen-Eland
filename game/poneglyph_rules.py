@@ -23,8 +23,20 @@ class PoneglyphRules:
                 grupo="road_poneglyph",
                 precio_base=precio
             )
+    def actualizar_todos_con_lagrange(self, turno_actual):
+        total = 0
 
-    def actualizar_precio_con_lagrange(self, poneglyph, turno_actual=7):
+        for poneglyph in self.poneglyphs.values():
+            resultado = self.actualizar_precio_con_lagrange(
+                poneglyph,
+                turno_actual
+            )
+
+            if resultado is not None:
+                total += 1
+
+        return total
+    def actualizar_precio_con_lagrange(self, poneglyph, turno_actual=1):
         try:
             resultado = calcular_precio_propiedad(
                 nombre_propiedad=poneglyph.nombre,
@@ -42,11 +54,11 @@ class PoneglyphRules:
     def obtener_poneglyph(self, referencia):
         return self.poneglyphs.get(referencia)
 
-    def analizar_poneglyph(self, jugador, casilla):
+    def analizar_poneglyph(self, jugador, casilla,turno_actual=1):
         poneglyph = self.obtener_poneglyph(casilla.referencia)
         
         if poneglyph is not None:
-            self.actualizar_precio_con_lagrange(poneglyph)
+            self.actualizar_precio_con_lagrange(poneglyph, turno_actual)
 
         if poneglyph is None:
             return {

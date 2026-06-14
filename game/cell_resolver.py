@@ -21,7 +21,7 @@ class CellResolver:
         self.yonkou_rules = YonkouRules(self.property_rules)
         self.event_rules = EventRules()
 
-    def resolver_casilla(self, jugador, casilla):
+    def resolver_casilla(self, jugador, casilla,turno_actual = 1):
         """
         Recibe el jugador y la casilla donde cayó.
         Según el tipo de casilla, llama al método correspondiente.
@@ -37,13 +37,13 @@ class CellResolver:
             return self.resolver_salida(jugador, casilla)
 
         elif casilla.tipo == TIPO_ISLA:
-            return self.resolver_isla(jugador, casilla)
+            return self.resolver_isla(jugador, casilla, turno_actual)
 
         elif casilla.tipo == TIPO_EVENTO:
             return self.resolver_evento(jugador, casilla)
 
         elif casilla.tipo == TIPO_ROAD_PONEGLYPH:
-            return self.resolver_road_poneglyph(jugador, casilla)
+            return self.resolver_road_poneglyph(jugador, casilla, turno_actual)
 
         elif casilla.tipo == TIPO_YONKO:
             return self.resolver_yonko(jugador, casilla)
@@ -72,8 +72,8 @@ class CellResolver:
             "referencia": casilla.referencia
         }
 
-    def resolver_isla(self, jugador, casilla):
-        resultado = self.property_rules.analizar_isla(jugador, casilla)
+    def resolver_isla(self, jugador, casilla, turno_actual):
+        resultado = self.property_rules.analizar_isla(jugador, casilla, turno_actual)
 
         print(resultado["mensaje"])
 
@@ -102,8 +102,8 @@ class CellResolver:
             "referencia": casilla.referencia
         }
 
-    def resolver_road_poneglyph(self, jugador, casilla):
-        resultado = self.poneglyph_rules.analizar_poneglyph(jugador, casilla)
+    def resolver_road_poneglyph(self, jugador, casilla, turno_actual):
+        resultado = self.poneglyph_rules.analizar_poneglyph(jugador, casilla, turno_actual)
 
         print(resultado["mensaje"])
 

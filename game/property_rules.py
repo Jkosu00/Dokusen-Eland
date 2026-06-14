@@ -1,6 +1,7 @@
+from models import propiedad
 from models.propiedad import Propiedad
 from services.price_service import calcular_precio_propiedad
-
+from database.db import guardar_calculo_lagrange
 
 class PropertyRules:
     def __init__(self):
@@ -110,7 +111,7 @@ class PropertyRules:
 
         return monopolios
 
-    def actualizar_precio_con_lagrange(self, propiedad, turno_actual=7):
+    def actualizar_precio_con_lagrange(self, propiedad, turno_actual=1, partida_id=None):
         try:
             resultado = calcular_precio_propiedad(
                 nombre_propiedad=propiedad.nombre,
@@ -119,17 +120,43 @@ class PropertyRules:
             )
 
             propiedad.precio_actual = int(resultado["valor_estimado"])
+
+            if partida_id is not None:
+                guardar_calculo_lagrange(
+                    partida_id=partida_id,
+                    turno=turno_actual,
+                    propiedad=propiedad.nombre,
+                    puntos_usados=resultado["puntos_usados"],
+                    x_eval=resultado["x_eval"],
+                    precio_estimado=resultado["valor_estimado"],
+                    precio_real=resultado["valor_real"],
+                    error_absoluto=resultado["error_absoluto"],
+                    error_porcentual=resultado["error_porcentual"]
+                )
+
             return resultado
 
         except Exception as error:
             print(f"No se pudo calcular precio con Lagrange para {propiedad.nombre}: {error}")
             return None
+    def actualizar_todas_con_lagrange(self, turno_actual):
+        total = 0
 
-    def analizar_isla(self, jugador, casilla):
+        for propiedad in self.propiedades.values():
+            resultado = self.actualizar_precio_con_lagrange(
+                propiedad,
+                turno_actual
+            )
+
+            if resultado is not None:
+                total += 1
+
+        return total
+    def analizar_isla(self, jugador, casilla, turno_actual=1):
         propiedad = self.obtener_propiedad(casilla.referencia)
 
         if propiedad is not None:
-            self.actualizar_precio_con_lagrange(propiedad)
+            self.actualizar_precio_con_lagrange(propiedad,turno_actual)
 
         if propiedad is None:
             return {

@@ -38,19 +38,29 @@ def obtener_propiedad(nombre_propiedad):
 
 
 def calcular_precio_propiedad(nombre_propiedad, turno_actual, cantidad_puntos=4):
-    """
-    Calcula el precio estimado de una isla o Road Poneglyph.
-    """
-
     propiedad = obtener_propiedad(nombre_propiedad)
+    puntos = propiedad["puntos"]
 
     resultado = estimar_valor(
-        puntos=propiedad["puntos"],
+        puntos=puntos,
         x_eval=turno_actual,
         cantidad_puntos=cantidad_puntos,
         valor_real=propiedad.get("valor_real_simulado")
     )
 
+    precio_estimado = int(round(resultado["valor_estimado"]))
+
+    precios_historicos = [punto[1] for punto in puntos]
+    precio_minimo = int(min(precios_historicos) * 0.85)
+    precio_maximo = int(max(precios_historicos) * 2.50)
+
+    if precio_estimado < precio_minimo:
+        precio_estimado = precio_minimo
+
+    if precio_estimado > precio_maximo:
+        precio_estimado = precio_maximo
+
+    resultado["valor_estimado"] = precio_estimado
     resultado["nombre_propiedad"] = nombre_propiedad
     resultado["tipo"] = propiedad["tipo"]
     resultado["grupo"] = propiedad["grupo"]
@@ -110,6 +120,57 @@ def listar_propiedades():
     datos = cargar_datos_precios()
     return list(datos.get("propiedades", {}).keys())
 
+def calcular_bono_lagrange(nombre_bono, turno_actual, cantidad_puntos=4):
+    """
+    Calcula recompensas dinámicas usando Lagrange.
+    Se usa para salida, cofres, descanso y eventos favorables.
+    """
+
+    bonos = {
+        "salida": {
+            "puntos": [(1, 350), (2, 375), (3, 400), (4, 425), (5, 450), (6, 475)],
+            "minimo": 300,
+            "maximo": 700
+        },
+        "cofre": {
+            "puntos": [(1, 150), (2, 180), (3, 210), (4, 240), (5, 270), (6, 300)],
+            "minimo": 100,
+            "maximo": 500
+        },
+        "riesgo_bueno": {
+            "puntos": [(1, 150), (2, 175), (3, 200), (4, 225), (5, 250), (6, 275)],
+            "minimo": 100,
+            "maximo": 500
+        },
+        "descanso": {
+            "puntos": [(1, 200), (2, 220), (3, 240), (4, 260), (5, 280), (6, 300)],
+            "minimo": 150,
+            "maximo": 450
+        }
+    }
+
+    if nombre_bono not in bonos:
+        raise ValueError(f"No existe el bono dinámico: {nombre_bono}")
+
+    bono = bonos[nombre_bono]
+
+    resultado = estimar_valor(
+        puntos=bono["puntos"],
+        x_eval=turno_actual,
+        cantidad_puntos=cantidad_puntos
+    )
+
+    valor_estimado = int(round(resultado["valor_estimado"]))
+
+    valor_estimado = max(
+        bono["minimo"],
+        min(valor_estimado, bono["maximo"])
+    )
+
+    resultado["valor_estimado"] = valor_estimado
+    resultado["nombre_bono"] = nombre_bono
+
+    return resultado
 
 if __name__ == "__main__":
     print("PROPIEDADES DISPONIBLES")
