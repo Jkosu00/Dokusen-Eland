@@ -79,6 +79,17 @@ class GameManager:
         self.cell_resolver = CellResolver()
 
         self.estado = "esperando_lanzamiento"
+        self.accion_pendiente = None
+        self.propiedad_pendiente = None
+        self.casilla_yonkou = None
+        self.modal_titulo = ""
+        self.modal_lineas = []
+        self.modal_opciones = []
+        self.mensaje_temporal_tiempo = 0
+        self.mensaje_salida_pendiente = ""
+        self.ganador = None
+        self.motivo_victoria = ""
+        self.propiedades_yonkou_disponibles = []
 
         self.mensaje = "Presiona ESPACIO para lanzar los dados"
         self.detalle_casilla = ""
@@ -93,22 +104,6 @@ class GameManager:
         self._preparar_jugadores()
         self._definir_orden_inicial()
 
-    def _calcular_tamano_tablero(self):
-        """
-        Calcula el tamaño del tablero para que se vea grande,
-        centrado y sin salirse de la pantalla.
-        """
-
-        margen_superior = 10
-        margen_inferior = 10
-        margen_lateral = 10
-
-        espacio_horizontal = self.ancho - (margen_lateral * 2)
-        espacio_vertical = self.alto - margen_superior - margen_inferior
-
-        board_size = min(espacio_horizontal, espacio_vertical)
-
-        return int(board_size)
 
     def _cargar_imagen_segura(self, path, size=None, usar_alpha=False):
         """
@@ -130,6 +125,11 @@ class GameManager:
         return imagen
     
     
+
+    def _abrir_modal(self, titulo, lineas, opciones):
+        self.modal_titulo = titulo
+        self.modal_lineas = lineas
+        self.modal_opciones = opciones
 
     def _cargar_fondo(self):
         """
@@ -250,17 +250,180 @@ class GameManager:
             if event.type == pygame.QUIT:
                 self.running = False
 
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if self.estado == "seleccionando_yonkou":
+                    self._manejar_click_yonkou(event.pos)
+                    continue
+
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.running = False
 
+                # Atajo de prueba: fuerza victoria por 4 Road Poneglyphs
+                if event.key == pygame.K_F4:
+                    jugador_actual = self.turn_manager.obtener_jugador_actual()
+                    jugador_actual.road_poneglyphs = [1, 2, 3, 4]
+                    self.ganador = jugador_actual
+                    self.motivo_victoria = "reunió los 4 Road Poneglyphs"
+                    self.estado = "fin_partida"
+                    self.mensaje = f"{jugador_actual.nombre} ganó: {self.motivo_victoria}."
+                    self.detalle_casilla = ""
+                    print(self.mensaje)
+                    continue
+
+                if self.estado in [
+                    "decidiendo_compra",
+                    "decidiendo_mejora",
+                    "decidiendo_recompra",
+                    "decidiendo_compra_poneglyph",
+                    "mostrando_evento"
+                ]:
+                    self._manejar_decision_propiedad(event.key)
+                    continue
+
                 if event.key == pygame.K_SPACE:
                     self._intentar_lanzar_dados()
+
+    def _manejar_decision_propiedad(self, tecla):
+        jugador_actual = self.turn_manager.obtener_jugador_actual()
+
+        if self.estado == "decidiendo_compra":
+            if tecla == pygame.K_c:
+                self.detalle_casilla = self.cell_resolver.property_rules.comprar_propiedad(
+                    jugador_actual,
+                    self.propiedad_pendiente
+                )
+                self._finalizar_decision()
+
+            elif tecla == pygame.K_n:
+                self.detalle_casilla = f"{jugador_actual.nombre} decidió no comprar."
+                self._finalizar_decision()
+
+        elif self.estado == "decidiendo_mejora":
+            if tecla == pygame.K_m:
+                self.detalle_casilla = self.cell_resolver.property_rules.mejorar_propiedad(
+                    jugador_actual,
+                    self.propiedad_pendiente
+                )
+                self._finalizar_decision()
+
+            elif tecla == pygame.K_n:
+                self.detalle_casilla = f"{jugador_actual.nombre} decidió no mejorar."
+                self._finalizar_decision()
+
+        elif self.estado == "decidiendo_recompra":
+            if tecla == pygame.K_r:
+                pago = self.cell_resolver.property_rules.pagar_impuesto(
+                    jugador_actual,
+                    self.propiedad_pendiente
+                )
+
+                recompra = self.cell_resolver.property_rules.recomprar_propiedad(
+                    jugador_actual,
+                    self.propiedad_pendiente
+                )
+
+                self.detalle_casilla = f"{pago} {recompra}"
+                self._finalizar_decision()
+
+            elif tecla == pygame.K_n:
+                self.detalle_casilla = self.cell_resolver.property_rules.pagar_impuesto(
+                    jugador_actual,
+                    self.propiedad_pendiente
+                )
+                self._finalizar_decision()
+
+        elif self.estado == "decidiendo_compra_poneglyph":
+            if tecla == pygame.K_c:
+                precio = self.cell_resolver.poneglyph_rules.calcular_precio_compra(
+                    jugador_actual,
+                    self.propiedad_pendiente
+                )
+
+                self.detalle_casilla = self.cell_resolver.poneglyph_rules.comprar_poneglyph(
+                    jugador_actual,
+                    self.propiedad_pendiente,
+                    precio
+                )
+                if jugador_actual.tiene_4_road_poneglyphs():
+                    self.ganador = jugador_actual
+                    self.motivo_victoria = "reunió los 4 Road Poneglyphs"
+                    self.estado = "fin_partida"
+                    self.mensaje = f"{jugador_actual.nombre} ganó: {self.motivo_victoria}."
+                    return
+
+                self._finalizar_decision()
+
+            elif tecla == pygame.K_n:
+                self.detalle_casilla = f"{jugador_actual.nombre} decidió no comprar el Road Poneglyph."
+                self._finalizar_decision()    
+
+        elif self.estado == "decidiendo_yonkou":
+            if tecla == pygame.K_y:
+                self.detalle_casilla = self.cell_resolver.yonkou_rules.aplicar_yonkou(
+                    jugador_actual,
+                    self.propiedad_pendiente
+                )
+                self._finalizar_decision()
+
+            elif tecla == pygame.K_n:
+                self.detalle_casilla = f"{jugador_actual.nombre} decidió no aplicar Bounty Yonkou."
+                self._finalizar_decision()
+
+        elif self.estado == "mostrando_evento":
+            if tecla == pygame.K_n or tecla == pygame.K_RETURN:
+                self._finalizar_decision()
+
+    def _manejar_click_yonkou(self, pos_mouse):
+        jugador_actual = self.turn_manager.obtener_jugador_actual()
+        referencias = [p.referencia for p in self.propiedades_yonkou_disponibles]
+
+        for casilla in self.board_manager.obtener_todas_las_casillas():
+            rect = pygame.Rect(casilla.x, casilla.y, casilla.ancho, casilla.alto)
+
+            if rect.collidepoint(pos_mouse) and casilla.referencia in referencias:
+                propiedad = None
+
+                for p in self.propiedades_yonkou_disponibles:
+                    if p.referencia == casilla.referencia:
+                        propiedad = p
+                        break
+
+                if propiedad:
+                    self.casilla_yonkou = casilla.referencia
+                    self.detalle_casilla = self.cell_resolver.yonkou_rules.aplicar_yonkou(
+                        jugador_actual,
+                        propiedad
+                    )
+
+                    self.propiedades_yonkou_disponibles = []
+                    self._finalizar_decision()
+
+                return
+
+    def _finalizar_decision(self):
+        self.accion_pendiente = None
+        self.propiedad_pendiente = None
+
+        self.turn_manager.siguiente_turno()
+        self.estado = "esperando_lanzamiento"
+
+        if self.detalle_casilla:
+            self.mensaje = self.detalle_casilla
+            self.mensaje_temporal_tiempo = pygame.time.get_ticks()
+        else:
+            self.mensaje = "Presiona ESPACIO para lanzar los dados"
+
+        self.modal_titulo = ""
+        self.modal_lineas = []
+        self.modal_opciones = []
 
     def _intentar_lanzar_dados(self):
         """
         Inicia el lanzamiento de dados solo si el juego está listo.
         """
+        if self.estado == "fin_partida":
+            return
 
         if self.estado != "esperando_lanzamiento":
             return
@@ -271,13 +434,16 @@ class GameManager:
         if self.movement_manager.esta_moviendose():
             return
 
+        self.mensaje_temporal_tiempo = 0
+        self.detalle_casilla = ""
+        self.mensaje_salida_pendiente = ""
+
         jugador_actual = self.turn_manager.obtener_jugador_actual()
 
         self.dice.iniciar_lanzamiento()
 
         self.estado = "animando_dados"
         self.mensaje = f"{jugador_actual.nombre} está lanzando los dados..."
-        self.detalle_casilla = ""
 
     def _actualizar(self, dt):
         """
@@ -292,6 +458,14 @@ class GameManager:
 
         elif self.estado == "moviendo_ficha":
             self._actualizar_movimiento_ficha()
+
+        if self.mensaje_temporal_tiempo > 0:
+            tiempo_actual = pygame.time.get_ticks()
+
+            if tiempo_actual - self.mensaje_temporal_tiempo >= 3000:
+                self.mensaje = "Presiona ESPACIO para lanzar los dados"
+                self.detalle_casilla = ""
+                self.mensaje_temporal_tiempo = 0
 
     def _actualizar_animacion_dados(self):
         """
@@ -314,6 +488,15 @@ class GameManager:
             f"{jugador_actual.nombre} sacó "
             f"{self.dado_1} + {self.dado_2} = {self.suma_dados}"
         )
+
+        # Cobro por dar vuelta al tablero. Se hace una sola vez, antes de mover.
+        if self.board_manager.paso_por_salida(jugador_actual.posicion, self.suma_dados):
+            jugador_actual.sumar_dinero(350)
+            self.mensaje_salida_pendiente = (
+                f"{jugador_actual.nombre} pasó por Salida y recibió $350 Berries."
+            )
+        else:
+            self.mensaje_salida_pendiente = ""
 
         self.detalle_casilla = "Moviendo ficha..."
 
@@ -344,7 +527,180 @@ class GameManager:
             )
 
             self.detalle_casilla = resultado["mensaje"]
+            accion = resultado.get("accion")
 
+            # Eventos: se muestran en ventana emergente y se confirma con N o Enter.
+            if resultado.get("tipo") == "evento":
+                self.estado = "mostrando_evento"
+                self.mensaje = f"{jugador_actual.nombre} cayó en {casilla_final.nombre}."
+
+                self._abrir_modal(
+                    titulo=casilla_final.nombre,
+                    lineas=[resultado["mensaje"]],
+                    opciones=["[N] Continuar"]
+                )
+
+                self.movement_manager.limpiar_ultima_casilla()
+                return
+
+            # Road Poneglyph de otro jugador: solo se paga impuesto, no se recompra.
+            if accion == "pagar_impuesto_poneglyph":
+                self.detalle_casilla = self.cell_resolver.poneglyph_rules.pagar_impuesto_poneglyph(
+                    jugador_actual,
+                    resultado.get("propiedad")
+                )
+                self.mensaje = self.detalle_casilla
+                self.mensaje_temporal_tiempo = pygame.time.get_ticks()
+
+                self.movement_manager.limpiar_ultima_casilla()
+                self.turn_manager.siguiente_turno()
+                self.estado = "esperando_lanzamiento"
+                return
+
+            if accion in [
+                "preguntar_compra",
+                "preguntar_mejora",
+                "preguntar_recompra",
+                "preguntar_compra_poneglyph",
+                "seleccionar_isla_yonkou"
+            ]:
+                self.accion_pendiente = accion
+                self.propiedad_pendiente = resultado.get("propiedad")
+                propiedad = self.propiedad_pendiente
+
+                if accion == "preguntar_compra":
+                    if not jugador_actual.puede_pagar(propiedad.precio_actual):
+                        self.detalle_casilla = (
+                            f"{jugador_actual.nombre} no tiene saldo suficiente para comprar {propiedad.nombre}."
+                        )
+                        self.mensaje = self.detalle_casilla
+                        self.mensaje_temporal_tiempo = pygame.time.get_ticks()
+
+                        self.movement_manager.limpiar_ultima_casilla()
+                        self.turn_manager.siguiente_turno()
+                        self.estado = "esperando_lanzamiento"
+                        return
+
+                    self.estado = "decidiendo_compra"
+
+                    self._abrir_modal(
+                        titulo=propiedad.nombre,
+                        lineas=[
+                            "Esta isla está libre.",
+                            f"Precio: ${propiedad.precio_actual}"
+                        ],
+                        opciones=[
+                            "[C] Comprar isla",
+                            "[N] Pasar turno"
+                        ]
+                    )
+
+                elif accion == "preguntar_mejora":
+                    self.estado = "decidiendo_mejora"
+
+                    self._abrir_modal(
+                        titulo=propiedad.nombre,
+                        lineas=[
+                            "Esta isla ya te pertenece.",
+                            f"Nivel actual: {propiedad.nivel_mejora}",
+                            f"Costo mejora: ${propiedad.calcular_costo_mejora()}"
+                        ],
+                        opciones=[
+                            "[M] Mejorar isla",
+                            "[N] No mejorar"
+                        ]
+                    )
+
+                elif accion == "preguntar_recompra":
+                    impuesto = resultado.get("impuesto")
+                    recompra = resultado.get("recompra")
+
+                    # Primero paga impuesto. Si no alcanza para impuesto + recompra,
+                    # no se muestra opción de recomprar.
+                    if not jugador_actual.puede_pagar(impuesto + recompra):
+                        self.detalle_casilla = self.cell_resolver.property_rules.pagar_impuesto(
+                            jugador_actual,
+                            propiedad
+                        )
+                        self.mensaje = f"{self.detalle_casilla} No tiene fondos para recomprar."
+                        self.mensaje_temporal_tiempo = pygame.time.get_ticks()
+
+                        self.movement_manager.limpiar_ultima_casilla()
+                        self.turn_manager.siguiente_turno()
+                        self.estado = "esperando_lanzamiento"
+                        return
+
+                    self.estado = "decidiendo_recompra"
+
+                    self._abrir_modal(
+                        titulo=propiedad.nombre,
+                        lineas=[
+                            f"Dueño: {propiedad.dueno.nombre}",
+                            f"Impuesto: ${impuesto}",
+                            f"Recompra: ${recompra}"
+                        ],
+                        opciones=[
+                            "[R] Pagar y recomprar",
+                            "[N] Solo pagar impuesto"
+                        ]
+                    )
+
+                elif accion == "preguntar_compra_poneglyph":
+                    precio = resultado.get("precio")
+
+                    if not jugador_actual.puede_pagar(precio):
+                        self.detalle_casilla = (
+                            f"{jugador_actual.nombre} no tiene fondos suficientes para comprar {propiedad.nombre}."
+                        )
+                        self.mensaje = self.detalle_casilla
+                        self.mensaje_temporal_tiempo = pygame.time.get_ticks()
+
+                        self.movement_manager.limpiar_ultima_casilla()
+                        self.turn_manager.siguiente_turno()
+                        self.estado = "esperando_lanzamiento"
+                        return
+
+                    self.estado = "decidiendo_compra_poneglyph"
+
+                    self._abrir_modal(
+                        titulo=propiedad.nombre,
+                        lineas=[
+                            "Road Poneglyph especial.",
+                            f"Precio: ${precio}",
+                            "No se puede recomprar."
+                        ],
+                        opciones=[
+                            "[C] Comprar Road Poneglyph",
+                            "[N] Pasar turno"
+                        ]
+                    )
+
+                elif accion == "seleccionar_isla_yonkou":
+                    self.estado = "seleccionando_yonkou"
+                    self.propiedades_yonkou_disponibles = resultado.get("propiedades", [])
+
+                    self._abrir_modal(
+                        titulo="Yonkou",
+                        lineas=[
+                            "Elige una de tus islas marcadas en rojo",
+                            "para aplicar el Bounty Yonkou."
+                        ],
+                        opciones=[
+                            "Haz clic sobre una isla marcada"
+                        ]
+                    )
+
+                self.movement_manager.limpiar_ultima_casilla()
+                return
+
+            # Casillas sin modal: descanso, salida, cárcel normal, etc.
+            if self.mensaje_salida_pendiente:
+                self.mensaje = f"{self.mensaje_salida_pendiente} {resultado['mensaje']}"
+                self.mensaje_salida_pendiente = ""
+            else:
+                self.mensaje = resultado["mensaje"]
+
+            self.mensaje_temporal_tiempo = pygame.time.get_ticks()
             self.movement_manager.limpiar_ultima_casilla()
 
         self.turn_manager.siguiente_turno()
@@ -358,12 +714,117 @@ class GameManager:
         self.pantalla.blit(self.fondo, (0, 0))
         self.pantalla.blit(self.tablero, (self.board_x, self.board_y))
 
+        self._dibujar_casilla_yonkou()
+        self._dibujar_casillas_seleccion_yonkou()
+
         self._dibujar_jugadores()
         self._dibujar_paneles_jugadores()
         self._dibujar_dados_centro()
         self._dibujar_msgbox()
+        self._dibujar_modal_decision()
 
-        pygame.display.flip()
+        pygame.display.flip()        
+
+    def _dibujar_casilla_yonkou(self):
+        if not self.casilla_yonkou:
+            return
+
+        for casilla in self.board_manager.obtener_todas_las_casillas():
+            if casilla.referencia == self.casilla_yonkou:
+                pygame.draw.rect(
+                    self.pantalla,
+                    (255, 215, 0),
+                    (casilla.x, casilla.y, casilla.ancho, casilla.alto),
+                    width=6,
+                    border_radius=6
+                )
+                break                
+
+    def _dibujar_casilla_yonkou(self):
+        if not self.casilla_yonkou:
+            return
+
+        for casilla in self.board_manager.obtener_todas_las_casillas():
+            if casilla.referencia == self.casilla_yonkou:
+                pygame.draw.rect(
+                    self.pantalla,
+                    (255, 215, 0),
+                    (casilla.x, casilla.y, casilla.ancho, casilla.alto),
+                    width=6,
+                    border_radius=6
+                )
+                break
+
+    def _dibujar_casillas_seleccion_yonkou(self):
+        if self.estado != "seleccionando_yonkou":
+            return
+
+        referencias = [p.referencia for p in self.propiedades_yonkou_disponibles]
+
+        for casilla in self.board_manager.obtener_todas_las_casillas():
+            if casilla.referencia in referencias:
+                pygame.draw.rect(
+                    self.pantalla,
+                    (255, 0, 0),
+                    (casilla.x, casilla.y, casilla.ancho, casilla.alto),
+                    width=4,
+                    border_radius=6
+                )
+
+    def _dibujar_modal_decision(self):
+        if self.estado not in ["decidiendo_compra", "decidiendo_mejora", "decidiendo_recompra", "decidiendo_compra_poneglyph", "decidiendo_yonkou", "seleccionando_yonkou", "mostrando_evento"]:
+            return
+
+        ancho_modal = 430
+        alto_modal = 230
+
+        x = (self.ancho - ancho_modal) // 2
+        y = (self.alto - alto_modal) // 2
+
+        pygame.draw.rect(
+            self.pantalla,
+            (18, 18, 28),
+            (x, y, ancho_modal, alto_modal),
+            border_radius=18
+        )
+
+        pygame.draw.rect(
+            self.pantalla,
+            (230, 190, 80),
+            (x, y, ancho_modal, alto_modal),
+            width=3,
+            border_radius=18
+        )
+
+        self._dibujar_texto_centrado(
+            self.modal_titulo,
+            x + ancho_modal // 2,
+            y + 35,
+            size=26,
+            color=(255, 230, 130)
+        )
+
+        pos_y = y + 65
+
+        for linea in self.modal_lineas:
+            self._dibujar_texto_centrado(
+                linea,
+                x + ancho_modal // 2,
+                pos_y,
+                size=17,
+                color=(255, 255, 255)
+            )
+            pos_y += 28
+
+        for opcion in self.modal_opciones:
+            self._dibujar_texto_centrado(
+                opcion,
+                x + ancho_modal // 2,
+                pos_y,
+                size=16,
+                color=(180, 220, 255)
+            )
+            pos_y += 26
 
     def _dibujar_jugadores(self):
         """
@@ -547,19 +1008,15 @@ class GameManager:
 
     def _dibujar_msgbox(self):
         """
-        Dibuja un cuadro pequeño de mensaje debajo del tablero,
-        sin tapar las casillas.
+        Dibuja un cuadro pequeño de mensaje debajo del tablero.
         """
 
         ancho_box = 520
         alto_box = 46
 
         x = (self.ancho - ancho_box) // 2
-
-        # Se coloca justo debajo del tablero
         y = self.board_y + self.board_size + 8
 
-        # Seguridad por si el tablero cambia de tamaño
         if y + alto_box > self.alto:
             y = self.alto - alto_box - 8
 
@@ -578,16 +1035,16 @@ class GameManager:
             border_radius=14
         )
 
-        texto = self.mensaje
+        texto = str(self.mensaje)
 
-        if self.detalle_casilla:
-            texto = f"{self.mensaje} | {self.detalle_casilla}"
+        if len(texto) > 72:
+            texto = texto[:69] + "..."
 
         self._dibujar_texto(
             texto,
             x + 15,
             y + 13,
-            size=15,
+            size=14,
             color=(255, 255, 255)
         )
 
@@ -599,3 +1056,9 @@ class GameManager:
         fuente = pygame.font.SysFont("arial", size, bold=True)
         render = fuente.render(str(texto), True, color)
         self.pantalla.blit(render, (x, y))
+
+    def _dibujar_texto_centrado(self, texto, centro_x, y, size=24, color=(255, 255, 255)):
+        fuente = pygame.font.SysFont("arial", size, bold=True)
+        render = fuente.render(str(texto), True, color)
+        rect = render.get_rect(center=(centro_x, y))
+        self.pantalla.blit(render, rect)
