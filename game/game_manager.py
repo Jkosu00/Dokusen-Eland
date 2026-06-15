@@ -1192,10 +1192,14 @@ class GameManager:
     def _resolver_riesgo_malo(self, jugador):
         self.sounds.play_effect("evento_malo")
         evento = random.choices(
-            ["perder_dinero", "perder_propiedad"],
-            weights=[70, 30],
+            ["perder_dinero", "perder_propiedad", "regalar_propiedad"],
+            weights=[55, 25, 20],
             k=1
         )[0]
+
+        if evento == "regalar_propiedad":
+            self._resolver_regalar_propiedad(jugador)
+            return
 
         if evento == "perder_dinero":
             cantidad = random.choice([100, 150, 200, 250])
@@ -1260,13 +1264,115 @@ class GameManager:
             cerrar_turno=True
         )
 
+    def _resolver_regalar_propiedad(self, jugador):
+        propiedades = self._obtener_propiedades_propias(jugador)
+        posibles_receptores = self._obtener_jugadores_activos_distintos(jugador)
+
+        if not propiedades or not posibles_receptores:
+            cantidad = 150
+            jugador.restar_dinero(cantidad)
+
+            self._registrar_transaccion_bd(
+                jugador=jugador,
+                tipo="RIESGO_PIERDE_DINERO",
+                monto=-cantidad,
+                descripcion="No podía regalar propiedad; pierde dinero."
+            )
+
+            self._registrar_evento_bd(
+                jugador=jugador,
+                tipo_evento="riesgo_malo",
+                efecto="No podía regalar propiedad; pierde dinero.",
+                monto=-cantidad
+            )
+
+            self._sincronizar_estado_bd()
+            self.sounds.play_effect("perder_dinero")
+
+            self._abrir_evento_simple(
+                titulo="Evento de Riesgo",
+                mensaje=(
+                    f"No tenías islas para regalar o no había otro jugador activo. "
+                    f"En su lugar, pierdes ${cantidad} Berries."
+                ),
+                tipo="riesgo_malo",
+                cerrar_turno=True
+            )
+            return
+
+        propiedad = random.choice(propiedades)
+        receptor = random.choice(posibles_receptores)
+
+        self._transferir_propiedad(propiedad, receptor)
+
+        self._registrar_evento_bd(
+            jugador=jugador,
+            tipo_evento="riesgo_malo",
+            efecto=f"{jugador.nombre} regaló {propiedad.nombre} a {receptor.nombre}.",
+            monto=0
+        )
+
+        self._sincronizar_estado_bd()
+        self.sounds.play_effect("evento_malo")
+
+        self._abrir_evento_simple(
+            titulo="Evento de Riesgo",
+            mensaje=f"{jugador.nombre} tuvo que regalar {propiedad.nombre} a {receptor.nombre}.",
+            tipo="riesgo_malo",
+            cerrar_turno=True
+        )
+
+    def _resolver_robar_propiedad(self, jugador):
+        propiedades = self._obtener_islas_enemigas(jugador)
+        if not propiedades:
+            self._registrar_evento_bd(
+                jugador=jugador,
+                tipo_evento="riesgo_bueno",
+                efecto="Podía robar una propiedad, pero no había islas enemigas disponibles.",
+                monto=0
+            )
+
+            self._abrir_evento_simple(
+                titulo="Evento Favorable",
+                mensaje="Podías robar una isla enemiga, pero no hay islas disponibles.",
+                tipo="riesgo_bueno",
+                cerrar_turno=True
+            )
+            return
+
+        propiedad = random.choice(propiedades)
+        dueno_anterior = propiedad.dueno
+
+        self._transferir_propiedad(propiedad, jugador)
+
+        self._registrar_evento_bd(
+            jugador=jugador,
+            tipo_evento="riesgo_bueno",
+            efecto=f"{jugador.nombre} robó {propiedad.nombre} a {dueno_anterior.nombre}.",
+            monto=0
+        )
+
+        self._sincronizar_estado_bd()
+        self.sounds.play_effect("evento_bueno")
+
+        self._abrir_evento_simple(
+            titulo="Evento Favorable",
+            mensaje=f"{jugador.nombre} robó {propiedad.nombre} a {dueno_anterior.nombre}.",
+            tipo="riesgo_bueno",
+            cerrar_turno=True
+        )
+
     def _resolver_riesgo_bueno(self, jugador):
         evento = random.choices(
-            ["destruir_propiedad", "conseguir_yonkou", "ganar_dinero"],
-            weights=[20, 30, 50],
+            ["destruir_propiedad", "conseguir_yonkou", "ganar_dinero", "robar_propiedad"],
+            weights=[15, 25, 45, 15],
             k=1
         )[0]
 
+        if evento == "robar_propiedad":
+            self._resolver_robar_propiedad(jugador)
+            return
+        
         if evento == "ganar_dinero":
             resultado_bono = calcular_bono_lagrange(
                 "riesgo_bueno",
@@ -1754,6 +1860,7 @@ class GameManager:
             for propiedad in self.cell_resolver.property_rules.propiedades.values()
             if propiedad.dueno == jugador
         ]
+
 
     def _obtener_propiedades_enemigas(self, jugador):
         bienes = []
