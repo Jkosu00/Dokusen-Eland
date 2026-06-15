@@ -1,5 +1,6 @@
 import os
 import random
+import sys
 import pygame
 
 from game.dice import Dice
@@ -23,7 +24,8 @@ class GameManager:
         board_size=None,
         board_path="assets/images/board/tablero.png",
         background_path="assets/images/board/background.png",
-        ventana_completa=True
+        ventana_completa=True,
+        orden_ya_definido=False
     ):
         pygame.init()
         self.sounds = SoundService()
@@ -142,7 +144,9 @@ class GameManager:
         self.tablero = self._cargar_tablero()
 
         self._preparar_jugadores()
-        self._definir_orden_inicial()
+
+        if not orden_ya_definido:
+            self._definir_orden_inicial()
 
     # ============================================================
     # CARGA / CONFIGURACIÓN
@@ -283,7 +287,8 @@ class GameManager:
     def _manejar_eventos(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                self.running = False
+                pygame.quit()
+                sys.exit()
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if self.estado == "fin_partida":
@@ -810,6 +815,8 @@ class GameManager:
             propiedad
         )
 
+        self.sounds.play_effect("perder_dinero")
+
         self._finalizar_decision()
 
     def _preparar_accion_pendiente(self, jugador, accion, resultado):
@@ -1300,6 +1307,9 @@ class GameManager:
     # ============================================================
 
     def _abrir_info_yonkou(self, jugador, propiedades, desde_evento=False):
+        if not desde_evento:
+            self.sounds.play_effect("yonkou")
+
         self.propiedades_yonkou_disponibles = propiedades or []
 
         if not self.propiedades_yonkou_disponibles:

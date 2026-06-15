@@ -1,5 +1,6 @@
 import pygame
-
+import sys
+from services.sound_service import SoundService
 
 class CharacterSelectionScreen:
     def __init__(self, screen, personajes, cantidad_jugadores=4, fondo_path=None):
@@ -14,7 +15,7 @@ class CharacterSelectionScreen:
         self.font_title = pygame.font.SysFont("arial", 38, bold=True)
         self.font = pygame.font.SysFont("arial", 24, bold=True)
         self.font_small = pygame.font.SysFont("arial", 17, bold=True)
-
+        self.sound_service = SoundService()
         self.jugador_actual = 0
         self.nombre_actual = ""
         self.input_activo = False
@@ -90,7 +91,8 @@ class CharacterSelectionScreen:
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    return None
+                    pygame.quit()
+                    sys.exit()
 
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
@@ -115,9 +117,11 @@ class CharacterSelectionScreen:
                         self.input_activo = False
 
                     if self.boton_volver.collidepoint(event.pos):
+                        self.sound_service.play_effect("click")
                         return None
 
                     if self.boton_siguiente.collidepoint(event.pos):
+                        self.sound_service.play_effect("click")
                         resultado = self._intentar_siguiente()
                         if resultado is not None:
                             return resultado

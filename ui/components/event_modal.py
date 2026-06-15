@@ -136,7 +136,7 @@ class EventModal:
 
         if cantidad == 1:
             x_boton = self.x + (self.ancho_modal - self.boton_ancho) // 2
-            y_boton = self.y + 375
+            y_boton = self.y + 315
 
             opcion = self.opciones[0]
 
@@ -159,7 +159,7 @@ class EventModal:
             total = (self.boton_ancho * 2) + espacio
             x_izquierda = self.x + (self.ancho_modal - total) // 2
             x_derecha = x_izquierda + self.boton_ancho + espacio
-            y_boton = self.y + 375
+            y_boton = self.y + 315
 
             posiciones = [x_izquierda, x_derecha]
 
@@ -185,7 +185,7 @@ class EventModal:
         columnas = 2
         total_fila = (self.boton_ancho * columnas) + espacio_x
         x_inicio = self.x + (self.ancho_modal - total_fila) // 2
-        y_inicio = self.y + 335
+        y_inicio = self.y + 300
 
         for i, opcion in enumerate(self.opciones):
             fila = i // columnas
@@ -252,7 +252,7 @@ class EventModal:
 
     def _dibujar_titulo(self, pantalla):
         centro_x = self.x + self.ancho_modal // 2
-        y_titulo = self.y + 95
+        y_titulo = self.y + 125
 
         self._dibujar_texto_centrado(
             pantalla,
@@ -266,7 +266,7 @@ class EventModal:
     def _dibujar_mensaje(self, pantalla):
         centro_x = self.x + self.ancho_modal // 2
         x_texto = self.x + 150
-        y_texto = self.y + 155
+        y_texto = self.y + 205
         ancho_linea = 60
 
         lineas = self._dividir_texto(self.mensaje, ancho_linea)

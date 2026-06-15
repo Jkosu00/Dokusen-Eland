@@ -6,6 +6,8 @@ from models.jugador import Jugador
 from game.game_manager import GameManager
 from ui.screens.start_screen import StartScreen
 from ui.screens.character_selection_screen import CharacterSelectionScreen
+from ui.screens.turn_order_screen import TurnOrderScreen
+from ui.screens.loading_screen import LoadingScreen
 
 
 PERSONAJES = [
@@ -132,13 +134,49 @@ def main():
             continue
 
         jugadores = crear_jugadores(configuraciones)
-        pygame.mixer.music.stop()
-        game_manager = GameManager(
+
+        orden_screen = TurnOrderScreen(
+            screen=screen,
             jugadores=jugadores,
-            ancho=1280,
-            alto=720,
-            ventana_completa=False
+            fondo_path="assets/images/UI_Eventos/Select_Background.png"
+
         )
+
+        jugadores_ordenados = orden_screen.run()
+
+        if jugadores_ordenados is None:
+            continue
+
+        loading = LoadingScreen(
+            screen,
+            fondo_path="assets/images/UI_Eventos/Menu/loading_screen.jpg",
+            spinner_path=None
+        )
+
+        tiempo_inicio = pygame.time.get_ticks()
+
+        while pygame.time.get_ticks() - tiempo_inicio < 3000:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+
+            loading.draw("Preparando tablero...")
+            pygame.time.delay(16)
+
+        pygame.mixer.music.stop()
+
+        ancho_actual = screen.get_width()
+        alto_actual = screen.get_height()
+
+        game_manager = GameManager(
+            jugadores=jugadores_ordenados,
+            ancho=ancho_actual,
+            alto=alto_actual,
+            ventana_completa=False,
+            orden_ya_definido=True
+        )
+
         maximizar_ventana()
         game_manager.run()
 

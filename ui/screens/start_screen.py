@@ -1,8 +1,10 @@
+
 import pygame
 import sys
 from pathlib import Path
 
 from ui.components.button import ImageButton
+from services.sound_service import SoundService
 
 
 class StartScreen:
@@ -13,10 +15,14 @@ class StartScreen:
 
         self.start_time = pygame.time.get_ticks()
 
-        # Ruta base del proyecto
         self.base_dir = Path(__file__).resolve().parents[2]
 
-        # Tiempos de la animación en milisegundos
+        # Servicio de sonido
+        self.sound_service = SoundService()
+
+        # Música del menú
+        self.sound_service.play_music("menu")
+
         self.title_hold_time = 3000
         self.title_move_time = 1800
         self.buttons_delay = 450
@@ -36,12 +42,10 @@ class StartScreen:
 
         self.title = pygame.transform.scale(self.title, (1010, 505))
 
-        # Posición del título
         self.title_x = self.width // 2
         self.title_start_y = self.height // 2
         self.title_end_y = 150
 
-        # Botón Jugar
         self.btn_jugar = ImageButton(
             self.width // 2,
             405,
@@ -50,7 +54,6 @@ class StartScreen:
             scale=(330, 180),
         )
 
-        # Botón Salir
         self.btn_salir = ImageButton(
             self.width // 2,
             525,
@@ -74,13 +77,14 @@ class StartScreen:
                     pygame.quit()
                     sys.exit()
 
-                # Los botones solo funcionan cuando ya empezaron a aparecer
                 if elapsed > buttons_start_time:
                     if self.btn_jugar.is_clicked(event):
-                        print("Iniciar juego")
+                        self.sound_service.play_effect("click")
                         return "jugar"
 
                     if self.btn_salir.is_clicked(event):
+                        self.sound_service.play_effect("click")
+                        pygame.time.delay(250)
                         pygame.quit()
                         sys.exit()
 
