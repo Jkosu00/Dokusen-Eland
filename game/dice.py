@@ -106,7 +106,7 @@ class Dice:
 
     def lanzar_directo(self):
         """
-        Lanza los dados sin animación.
+        Lanza los dados sin animación.|
         Útil para definir el orden inicial de turnos.
         """
         self.resultado_1 = random.randint(1, 6)
